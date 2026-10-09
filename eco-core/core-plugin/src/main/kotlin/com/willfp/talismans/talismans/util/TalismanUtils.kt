@@ -1,14 +1,20 @@
 package com.willfp.talismans.talismans.util
 
+import com.willfp.eco.core.cache.EcoCache
 import com.willfp.eco.core.fast.fast
 import com.willfp.talismans.plugin
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
+import java.time.Duration
 
 object TalismanUtils {
     private val TALISMAN_MATERIALS = mutableSetOf<Material>()
+
+    private val TALISMAN_LIMITS: EcoCache<Player, Int> = EcoCache.builder<Player, Int>()
+        .expireAfterWrite(Duration.ofSeconds(10))
+        .build()
 
     fun convert(itemStack: ItemStack?) {
         if (itemStack == null) {
@@ -32,28 +38,13 @@ object TalismanUtils {
     }
 
     fun getLimit(player: Player): Int {
-        val configLimit = plugin.configYml.getInt("talisman-limit")
-        if (configLimit > 0) {
-            return configLimit
+        return TALISMAN_LIMITS.get(player) {
+            TalismanLimit.fromPermissions(it.effectivePermissions.map { permission -> permission.permission })
         }
+    }
 
-        val prefix = "talismans.limit."
-        var highest = -1
-        for (permission in player.effectivePermissions.map { it.permission }) {
-            if (!permission.startsWith(prefix)) {
-                continue
-            }
-
-            val limit = permission.substring(permission.lastIndexOf(".") + 1).toInt()
-            if (limit > highest) {
-                highest = limit
-            }
-        }
-        return if (highest < 0) {
-            10000
-        } else {
-            highest
-        }
+    fun clearLimit(player: Player) {
+        TALISMAN_LIMITS.invalidate(player)
     }
 
     fun isTalismanMaterial(material: Material): Boolean {

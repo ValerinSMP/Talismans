@@ -11,6 +11,7 @@ import com.willfp.libreforge.registerSpecificHolderProvider
 import com.willfp.libreforge.registerSpecificRefreshFunction
 import com.willfp.libreforge.slot.SlotTypes
 import com.willfp.talismans.bag.TalismanBag
+import com.willfp.talismans.bag.TalismanLifecycleListener
 import com.willfp.talismans.command.CommandTalismans
 import com.willfp.talismans.display.TalismanDisplay
 import com.willfp.talismans.libreforge.ConditionHasTalisman
@@ -85,7 +86,8 @@ class TalismansPlugin : LibreforgePlugin() {
     override fun loadListeners(): List<Listener> {
         return listOf(
             BlockPlaceListener,
-            DiscoverRecipeListener
+            DiscoverRecipeListener,
+            TalismanLifecycleListener
         )
     }
 

@@ -14,6 +14,8 @@ import com.willfp.eco.core.placeholder.PlayerPlaceholder
 import com.willfp.eco.core.recipe.parts.EmptyTestableItem
 import com.willfp.eco.util.MenuUtils
 import com.willfp.ecomponent.menuStateVar
+import com.willfp.libreforge.refreshHolders
+import com.willfp.libreforge.toDispatcher
 import com.willfp.talismans.plugin
 import com.willfp.talismans.talismans.util.TalismanChecks
 import org.bukkit.Material
@@ -33,7 +35,12 @@ object TalismanBag {
     private lateinit var key: PersistentDataKey<List<String>>
     private lateinit var emptyItem: ItemStack
 
-    private val savedItems = mutableMapOf<UUID, List<ItemStack>>()
+    private val savedItems = SessionBagCache<List<ItemStack>>()
+
+    internal fun forget(player: Player) {
+        savedItems.remove(player.uniqueId)
+        TalismanChecks.clearCache(player)
+    }
 
     private val Player.bagSize: Int
         get() {
@@ -119,7 +126,7 @@ object TalismanBag {
                     val toWrite = items
                         .filter { TalismanChecks.getTalismanOnItem(it) != null }
 
-                    savedItems[player.uniqueId] = toWrite.toList()
+                    savedItems.put(player.uniqueId, player.profile, toWrite.toList())
 
                     player.profile.write(key, toWrite.map { Items.toSNBT(it) })
                 }
@@ -130,7 +137,7 @@ object TalismanBag {
                     val items = menu.getCaptiveItems(player)
                         .filterNot { EmptyTestableItem().matches(it) }
 
-                    val toWrite = savedItems[player.uniqueId] ?: emptyList()
+                    val toWrite = savedItems.get(player.uniqueId, player.profile) ?: getTalismans(player)
 
                     player.profile.write(key, toWrite.map { Items.toSNBT(it) })
                     player.profile.write(legacyKey, emptyList())
@@ -142,6 +149,10 @@ object TalismanBag {
                         .forceTelekinesis()
                         .addItems(toDrop)
                         .push()
+
+                    TalismanChecks.clearCache(player)
+                    player.toDispatcher().refreshHolders()
+                    menu.talismanBag[player] = emptyList()
                 }
             }
         }
@@ -160,19 +171,21 @@ object TalismanBag {
     }
 
     fun getTalismans(player: Player): List<ItemStack> {
-        if (!savedItems.contains(player.uniqueId)) {
-            val legacyItems = player.profile.read(legacyKey)
+        val profile = player.profile
+        savedItems.get(player.uniqueId, profile)?.let { return it }
+        run {
+            val legacyItems = profile.read(legacyKey)
                 .map { Items.lookup(it).item }
                 .filterNot { EmptyTestableItem().matches(it) }
                 .filter { TalismanChecks.getTalismanOnItem(it) != null }
 
-            val items = player.profile.read(key)
+            val items = profile.read(key)
                 .mapNotNull { Items.fromSNBT(it) }
                 .filter { TalismanChecks.getTalismanOnItem(it) != null }
 
-            savedItems[player.uniqueId] = (legacyItems + items).toList()
+            savedItems.put(player.uniqueId, profile, (legacyItems + items).toList())
         }
 
-        return savedItems[player.uniqueId] ?: emptyList()
+        return savedItems.get(player.uniqueId, profile) ?: emptyList()
     }
 }

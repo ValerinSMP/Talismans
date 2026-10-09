@@ -19,9 +19,7 @@ base {
 }
 
 dependencies {
-    project.project(project(":eco-core").path).subprojects {
-        implementation(this)
-    }
+    implementation(project(":eco-core:core-plugin"))
 }
 
 publishing {
@@ -128,8 +126,6 @@ allprojects {
         compileJava {
             options.isDeprecation = true
             options.encoding = "UTF-8"
-
-            dependsOn(clean)
         }
 
         processResources {
